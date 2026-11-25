@@ -20,9 +20,21 @@
 // client chrome: a way back to the city, and an Admin dropdown —
 // the dashboard and its menu, inside the app. Links that leave the
 // city entirely still belong to the real browser. (v1.0.1.)
+//
+// v1.0.2 learns to fetch its own successor (Alex: "unless we build an
+// autoupdater into the next deb" — so this is the last manual install).
+// On startup the client asks the release shelf, quietly, whether a
+// newer signed client exists; if one does, a native dialog offers the
+// update, the download is signature-verified by the updater plugin,
+// and the install lands in place: the plugin's own path on Windows
+// and AppImage, and — because a .deb needs root that the plugin does
+// not arrange — pkexec dpkg on Debian installs, with the system's own
+// password prompt. The city is never involved; only the door changes.
 
 use tauri::webview::NewWindowResponse;
-use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
+use tauri_plugin_updater::UpdaterExt;
 
 const CITY: &str = "https://rockport.nocturnerow.com:4043/";
 const CITY_HOST: &str = "rockport.nocturnerow.com";
@@ -104,8 +116,102 @@ const INIT_SCRIPT: &str = r##"
 })();
 "##;
 
+async fn check_and_offer(handle: AppHandle) {
+    let updater = match handle.updater() {
+        Ok(u) => u,
+        Err(_) => return,
+    };
+    let update = match updater.check().await {
+        Ok(Some(u)) => u,
+        _ => return,
+    };
+    let version = update.version.clone();
+    let h = handle.clone();
+    handle
+        .dialog()
+        .message(format!(
+            "Rockport {} is ready — a newer client than the one you are \
+             running. Update and restart now? The city itself won't \
+             blink; only the door changes.",
+            version
+        ))
+        .title("Rockport — update available")
+        .buttons(MessageDialogButtons::OkCancelCustom(
+            "Update and restart".to_string(),
+            "Later".to_string(),
+        ))
+        .show(move |confirmed| {
+            if !confirmed {
+                return;
+            }
+            let h2 = h.clone();
+            tauri::async_runtime::spawn(async move {
+                let bytes = match update.download(|_, _| {}, || {}).await {
+                    Ok(b) => b,
+                    Err(_) => return,
+                };
+                install_downloaded(&h2, &update, bytes);
+            });
+        });
+}
+
+fn install_downloaded(
+    handle: &AppHandle,
+    update: &tauri_plugin_updater::Update,
+    bytes: Vec<u8>,
+) {
+    #[cfg(not(target_os = "linux"))]
+    {
+        if update.install(bytes).is_ok() {
+            handle.restart();
+        }
+    }
+    #[cfg(target_os = "linux")]
+    {
+        // An AppImage replaces its own file — the plugin's path works
+        // there. A .deb needs root for dpkg, which the plugin does
+        // not arrange; pkexec does, with the system's own prompt.
+        if std::env::var_os("APPIMAGE").is_some() {
+            if update.install(bytes).is_ok() {
+                handle.restart();
+            }
+            return;
+        }
+        let path = std::env::temp_dir()
+            .join(format!("rockport-update-{}.deb", update.version));
+        if std::fs::write(&path, &bytes).is_err() {
+            return;
+        }
+        let status = std::process::Command::new("pkexec")
+            .arg("dpkg")
+            .arg("-i")
+            .arg(&path)
+            .status();
+        match status {
+            Ok(s) if s.success() => handle.restart(),
+            _ => {
+                handle
+                    .dialog()
+                    .message(format!(
+                        "The update downloaded, but the system installer \
+                         didn't finish — the new package is waiting at {}. \
+                         You can install it by hand, or grab the newest \
+                         client from the city's front door.",
+                        path.display()
+                    ))
+                    .title("Rockport — update paused")
+                    .buttons(MessageDialogButtons::Ok)
+                    .show(|_| {});
+            }
+        }
+    }
+}
+
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
             let new_handle = app.handle().clone();
             WebviewWindowBuilder::new(
@@ -141,6 +247,13 @@ fn main() {
                 }
             })
             .build()?;
+            // The update check rides a plain thread for its delay so
+            // startup never waits on it; the check itself is async.
+            let h = app.handle().clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_secs(5));
+                tauri::async_runtime::block_on(check_and_offer(h));
+            });
             Ok(())
         })
         .run(tauri::generate_context!())

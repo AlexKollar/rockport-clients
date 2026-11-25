@@ -39,9 +39,18 @@
       "webviewInstallMode": {
         "type": "downloadBootstrapper"
       }
-    }
+    },
+    "createUpdaterArtifacts": true
   },
   "identifier": "com.nocturnerow.rockport",
   "productName": "Rockport",
-  "version": "1.0.1"
+  "version": "1.0.2",
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEYxNUFDNTRDRkU1ODc3QzEKUldUQmQxaitUTVZhOFJDR3pkWDV1SjR0V0Y0RTQ0VWwrUnlCRENNNUJLRWZiSE4wZHE0MDRiMGwK",
+      "endpoints": [
+        "https://github.com/AlexKollar/rockport-clients/releases/latest/download/latest.json"
+      ]
+    }
+  }
 }
