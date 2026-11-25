@@ -1,0 +1,1 @@
+{"$schema":"../gen/schemas/desktop-schema.json","description":"The main window's baseline. The page is the live city site, first-party; it gets no Tauri API beyond the core default.","identifier":"default","permissions":["core:default"],"windows":["main"]}

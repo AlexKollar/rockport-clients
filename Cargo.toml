@@ -1,0 +1,16 @@
+[package]
+name = "rockport-client"
+version = "1.0.0"
+description = "Rockport — the standalone client. A Nocturne Row world, live in 2475."
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
