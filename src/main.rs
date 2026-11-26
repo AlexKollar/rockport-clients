@@ -162,6 +162,31 @@ async fn check_and_offer(handle: AppHandle) {
         });
 }
 
+/// The Arch line (Omarchy and kin) runs pacman, and Rockport
+/// ships there as a package — updates arrive as packages too.
+/// Detected by the tool itself: pacman present, and neither of
+/// the other lines' tools beside it.
+#[cfg(target_os = "linux")]
+fn pacman_system() -> bool {
+    std::path::Path::new("/usr/bin/pacman").exists()
+        && !std::path::Path::new("/usr/bin/dpkg").exists()
+        && !std::path::Path::new("/usr/bin/rpm").exists()
+}
+
+#[cfg(target_os = "linux")]
+fn package_update_dialog(handle: &AppHandle) {
+    handle
+        .dialog()
+        .message(
+            "On this system, Rockport updates arrive as a package: \
+             the newest Arch package (.pkg.tar.zst) is waiting at the \
+             city's front door, and pacman -U installs it in one line.",
+        )
+        .title("Rockport — update via package")
+        .buttons(MessageDialogButtons::Ok)
+        .show(|_| {});
+}
+
 fn install_downloaded(
     handle: &AppHandle,
     update: &tauri_plugin_updater::Update,
@@ -181,7 +206,19 @@ fn install_downloaded(
         if std::env::var_os("APPIMAGE").is_some() {
             if update.install(bytes).is_ok() {
                 handle.restart();
+            } else if pacman_system() {
+                // The packaged AppImage lives on root-owned ground;
+                // the swap cannot land there. On the Arch line the
+                // package is the update — say so, plainly.
+                package_update_dialog(handle);
             }
+            return;
+        }
+        // A bare binary on the Arch line: the downloaded bytes are
+        // the AppImage build, which neither dpkg nor rpm can eat.
+        // Do not feed them to the wrong tool.
+        if pacman_system() {
+            package_update_dialog(handle);
             return;
         }
         // The package tool follows the system family: rpm where the

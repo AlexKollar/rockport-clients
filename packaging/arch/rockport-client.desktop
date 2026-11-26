@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Rockport
+Comment=A Nocturne Row world — the standalone client
+Exec=rockport-client
+Icon=rockport-client
+Terminal=false
+Categories=Game;

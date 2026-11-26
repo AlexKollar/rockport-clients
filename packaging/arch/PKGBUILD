@@ -1,0 +1,40 @@
+# Rockport client — the Arch line (Arch Linux, Omarchy, and kin).
+#
+# The package carries the release AppImage whole under
+# /usr/lib/rockport-client and points /usr/bin/rockport-client
+# at it; pacman owns the install, and updates on this line
+# arrive as new packages (the client's updater learns to say
+# exactly that in v1.0.4). Build with makepkg on any Arch-line
+# system, or run build_arch_package.py beside this file to
+# assemble the same package from the release artifacts.
+pkgname=rockport-client
+pkgver=1.0.3
+pkgrel=1
+pkgdesc="Rockport — a Nocturne Row world (standalone client)"
+arch=('x86_64')
+url="https://rockport.nocturnerow.com:4043"
+license=('AGPL-3.0-or-later')
+depends=('webkit2gtk-4.1' 'gtk3')
+source=("Rockport_${pkgver}_amd64.AppImage::https://github.com/AlexKollar/rockport-clients/releases/download/v${pkgver}/Rockport_${pkgver}_amd64.AppImage"
+        "rockport-client.desktop"
+        "128x128.png"
+        "32x32.png")
+sha256sums=('65c71750dbfe7e1d9dd352781e705ed1fc2a05c216d5a65b2755bb35b7cdf6a3'
+            'SKIP'
+            'SKIP'
+            'SKIP')
+options=('!strip')
+
+package() {
+  install -Dm755 "$srcdir/Rockport_${pkgver}_amd64.AppImage" \
+    "$pkgdir/usr/lib/rockport-client/Rockport.AppImage"
+  install -dm755 "$pkgdir/usr/bin"
+  ln -s ../lib/rockport-client/Rockport.AppImage \
+    "$pkgdir/usr/bin/rockport-client"
+  install -Dm644 "$srcdir/rockport-client.desktop" \
+    "$pkgdir/usr/share/applications/rockport-client.desktop"
+  install -Dm644 "$srcdir/128x128.png" \
+    "$pkgdir/usr/share/icons/hicolor/128x128/apps/rockport-client.png"
+  install -Dm644 "$srcdir/32x32.png" \
+    "$pkgdir/usr/share/icons/hicolor/32x32/apps/rockport-client.png"
+}
