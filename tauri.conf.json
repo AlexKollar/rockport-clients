@@ -23,12 +23,19 @@
           "libwebkit2gtk-4.1-0",
           "libgtk-3-0t64"
         ]
+      },
+      "rpm": {
+        "depends": [
+          "webkit2gtk4.1",
+          "gtk3"
+        ]
       }
     },
     "longDescription": "The standalone Rockport client: the city's homepage and web player in one window, no browser chrome. Live-only by design \u2014 the city is the server, and every update arrives the moment it ships.",
     "shortDescription": "Rockport \u2014 a Nocturne Row world",
     "targets": [
       "deb",
+      "rpm",
       "appimage",
       "nsis"
     ],
@@ -44,7 +51,7 @@
   },
   "identifier": "com.nocturnerow.rockport",
   "productName": "Rockport",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "plugins": {
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEYxNUFDNTRDRkU1ODc3QzEKUldUQmQxaitUTVZhOFJDR3pkWDV1SjR0V0Y0RTQ0VWwrUnlCRENNNUJLRWZiSE4wZHE0MDRiMGwK",

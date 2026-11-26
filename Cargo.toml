@@ -1,6 +1,6 @@
 [package]
 name = "rockport-client"
-version = "1.0.2"
+version = "1.0.3"
 description = "Rockport — the standalone client. A Nocturne Row world, live in 2475."
 edition = "2021"
 

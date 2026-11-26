@@ -27,9 +27,16 @@
 // newer signed client exists; if one does, a native dialog offers the
 // update, the download is signature-verified by the updater plugin,
 // and the install lands in place: the plugin's own path on Windows
-// and AppImage, and — because a .deb needs root that the plugin does
-// not arrange — pkexec dpkg on Debian installs, with the system's own
-// password prompt. The city is never involved; only the door changes.
+// and AppImage, and — because a package install needs root that the
+// plugin does not arrange — pkexec on package installs (dpkg on the
+// Debian family, rpm on the Fedora/SUSE family), with the system's
+// own password prompt. The city is never involved; only the door
+// changes.
+//
+// v1.0.3 puts an RPM on the shelf beside the .deb and the AppImage
+// (Alex: "we also need to add RPM builds for Linux"), and the updater
+// covers it the same way: the manifest carries the rpm artifact, and
+// the install step picks the package tool the system actually runs.
 
 use tauri::webview::NewWindowResponse;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
@@ -177,16 +184,33 @@ fn install_downloaded(
             }
             return;
         }
+        // The package tool follows the system family: rpm where the
+        // os-release names the Fedora/SUSE line (or where dpkg simply
+        // isn't), dpkg everywhere else.
+        let osr = std::fs::read_to_string("/etc/os-release")
+            .unwrap_or_default()
+            .to_lowercase();
+        let rpm_family = ["fedora", "rhel", "centos", "rocky", "almalinux", "suse"]
+            .iter()
+            .any(|k| osr.contains(k))
+            || (std::path::Path::new("/usr/bin/rpm").exists()
+                && !std::path::Path::new("/usr/bin/dpkg").exists());
+        let (tool, flag, ext): (&str, &str, &str) = if rpm_family {
+            ("rpm", "-U", "rpm")
+        } else {
+            ("dpkg", "-i", "deb")
+        };
         let path = std::env::temp_dir()
-            .join(format!("rockport-update-{}.deb", update.version));
+            .join(format!("rockport-update-{}.{}", update.version, ext));
         if std::fs::write(&path, &bytes).is_err() {
             return;
         }
-        let status = std::process::Command::new("pkexec")
-            .arg("dpkg")
-            .arg("-i")
-            .arg(&path)
-            .status();
+        let mut cmd = std::process::Command::new("pkexec");
+        cmd.arg(tool).arg(flag);
+        if rpm_family {
+            cmd.arg("--replacepkgs");
+        }
+        let status = cmd.arg(&path).status();
         match status {
             Ok(s) if s.success() => handle.restart(),
             _ => {
